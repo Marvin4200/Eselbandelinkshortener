@@ -14,6 +14,9 @@ const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'https://go.eselbande.com/auth/callback';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'changeme';
+if (SESSION_SECRET === 'changeme' && process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET must be set in production. Refusing to start.');
+}
 const MAX_LINKS_PER_USER = 500;
 
 // ── Database ─────────────────────────────────────────────────────────────────
@@ -48,6 +51,15 @@ db.exec(`
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1);
+
+// Security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
