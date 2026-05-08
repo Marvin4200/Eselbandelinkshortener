@@ -184,6 +184,11 @@
     .btn-copy:hover { background: var(--surface); }
 
     @media (max-width: 540px) {
+      .topnav { padding: 0.6rem 0.75rem; }
+      .nav-brand { font-size: 0.85rem; white-space: nowrap; }
+      .nav-links { overflow-x: auto; scrollbar-width: none; flex-shrink: 1; min-width: 0; }
+      .nav-links::-webkit-scrollbar { display: none; }
+      .nav-link { white-space: nowrap; padding: 0.28rem 0.55rem; font-size: 0.72rem; }
       .form-row { flex-direction: column; }
       .link-dest { max-width: 220px; }
     }
