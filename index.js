@@ -195,7 +195,9 @@ app.delete('/api/links/:id', requireAuth, (req, res) => {
 });
 
 // ── Redirect ──────────────────────────────────────────────────────────────────
-const RESERVED_ROUTES = new Set(['auth', 'api']);
+const RESERVED_ROUTES = new Set(['auth', 'api', 'health']);
+
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime() }));
 
 app.get('/:slug', (req, res, next) => {
     const { slug } = req.params;
@@ -209,9 +211,6 @@ app.get('/:slug', (req, res, next) => {
     db.prepare('UPDATE links SET clicks = clicks + 1 WHERE id = ?').run(link.id);
     res.redirect(302, link.url);
 });
-
-// ── Health ───────────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime() }));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`[go.eselbande.com] Running on port ${PORT}`));
