@@ -1,0 +1,14 @@
+{
+  "name": "linkshortener",
+  "version": "1.0.0",
+  "description": "go.eselbande.com – Discord OAuth Link Shortener",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  }
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>go.eselbande.com – Link Shortener</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080810;
+      --surface: #12121e;
+      --surface2: #1a1a2e;
+      --border: rgba(139,92,246,.18);
+      --accent: #8b5cf6;
+      --accent2: #667eea;
+      --text: #e4e4f0;
+      --muted: #6b7280;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Background ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse at 15% 15%, rgba(102,126,234,.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 85%, rgba(139,92,246,.07) 0%, transparent 55%);
+    }
+
+    /* ── Layout ── */
+    .wrap { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; padding: 0 20px 60px; }
+
+    /* ── Header ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 28px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+    }
+    .logo { font-size: 1.4rem; font-weight: 800; background: linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .logo span { opacity: .55; font-weight: 500; }
+
+    /* ── Auth ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: .88rem; font-weight: 600; font-family: inherit;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:hover { opacity: .85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-discord { background: #5865F2; color: #fff; }
+    .btn-logout  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff; }
+    .btn-danger  { background: transparent; color: var(--danger); border: 1px solid rgba(239,68,68,.3); padding: 5px 10px; font-size: .8rem; }
+
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); }
+    .username { font-weight: 600; font-size: .9rem; }
+
+    /* ── Login screen ── */
+    #login-screen {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 55vh; text-align: center; gap: 20px;
+    }
+    .login-icon { font-size: 3.5rem; }
+    .login-title { font-size: 2rem; font-weight: 800; }
+    .login-sub { color: var(--muted); max-width: 340px; line-height: 1.6; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 18px; }
+
+    /* ── Form ── */
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    input[type="text"], input[type="url"] {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 10px 14px; font-size: .9rem; font-family: inherit;
+      outline: none; transition: border-color .15s;
+      width: 100%;
+    }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    .form-actions { display: flex; align-items: flex-end; }
+
+    /* ── Links table ── */
+    .links-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    .links-count { font-size: .82rem; color: var(--muted); }
+
+    .link-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px; align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .link-item:last-child { border-bottom: none; }
+
+    .link-info { min-width: 0; }
+    .link-short {
+      font-weight: 700; font-size: .95rem; color: var(--accent);
+      text-decoration: none; word-break: break-all;
+    }
+    .link-short:hover { text-decoration: underline; }
+    .link-dest {
+      font-size: .78rem; color: var(--muted); margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 520px;
+    }
+    .link-meta { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+    .link-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .click-badge {
+      font-size: .78rem; font-weight: 600; color: var(--accent);
+      background: rgba(139,92,246,.12); border-radius: 6px; padding: 3px 9px;
+      white-space: nowrap;
+    }
+
+    /* ── Copy toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--success); color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-weight: 600; font-size: .88rem; opacity: 0;
+      transition: opacity .2s, transform .2s; pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Error ── */
+    .error-msg { color: var(--danger); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
+    .success-msg { color: var(--success); font-size: .85rem; margin-top: 10px; }
+
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 40px 0; color: var(--muted); }
+
+    /* ── Copy btn ── */
+    .btn-copy {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 5px 10px; border-radius: 6px;
+      font-size: .8rem; cursor: pointer; transition: background .15s;
+    }
+    .btn-copy:hover { background: var(--surface); }
+
+    @media (max-width: 540px) {
+      .form-row { flex-direction: column; }
+      .link-dest { max-width: 220px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">go<span>.eselbande.com</span></div>
+    <div id="header-auth"></div>
+  </header>
+
+  <div id="login-screen" style="display:none">
+    <div class="login-icon">🔗</div>
+    <h1 class="login-title">Link Shortener</h1>
+    <p class="login-sub">Kürze beliebige Links mit deiner eigenen Domain. Login mit Discord erforderlich.</p>
+    <a href="/auth/login" class="btn btn-discord">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Mit Discord einloggen
+    </a>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <!-- Shorten form -->
+    <div class="card">
+      <div class="card-title">🔗 Neuen Link kürzen</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:3">
+          <label for="url-input">Ziel-URL</label>
+          <input type="url" id="url-input" placeholder="https://example.com/sehr/langer/link" />
+        </div>
+        <div class="form-group" style="flex:1.2">
+          <label for="slug-input">Kurzname (optional)</label>
+          <input type="text" id="slug-input" placeholder="mein-link" maxlength="40" />
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="shorten()">Kürzen</button>
+        </div>
+      </div>
+      <div id="shorten-error" class="error-msg"></div>
+      <div id="shorten-success" class="success-msg" style="display:none"></div>
+    </div>
+
+    <!-- Link list -->
+    <div class="card">
+      <div class="links-header">
+        <div class="card-title" style="margin-bottom:0">Meine Links</div>
+        <div id="links-count" class="links-count"></div>
+      </div>
+      <div id="links-list"><div class="empty">Lade...</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Kopiert!</div>
+
+<script>
+  let currentUser = null;
+
+  async function init() {
+    try {
+      const res = await fetch('/api/me');
+      if (res.ok) {
+        currentUser = await res.json();
+        showDashboard();
+        loadLinks();
+      } else {
+        showLogin();
+      }
+    } catch {
+      showLogin();
+    }
+    // Check URL params for errors
+    const p = new URLSearchParams(location.search);
+    if (p.get('error')) {
+      document.getElementById('shorten-error').textContent = 'Login fehlgeschlagen. Bitte erneut versuchen.';
+    }
+  }
+
+  function showLogin() {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('header-auth').innerHTML =
+      `<a href="/auth/login" class="btn btn-discord">Mit Discord einloggen</a>`;
+  }
+
+  function showDashboard() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    const avatar = currentUser.avatar
+      ? `<img class="avatar" src="https://cdn.discordapp.com/avatars/${currentUser.discordId}/${currentUser.avatar}.png" />`
+      : '';
+    document.getElementById('header-auth').innerHTML = `
+      <div class="user-info">
+        ${avatar}
+        <span class="username">${esc(currentUser.username)}</span>
+        <form method="POST" action="/auth/logout" style="display:inline">
+          <button type="submit" class="btn btn-logout">Logout</button>
+        </form>
+      </div>`;
+  }
+
+  async function loadLinks() {
+    const res = await fetch('/api/links');
+    if (!res.ok) return;
+    const links = await res.json();
+    const count = document.getElementById('links-count');
+    const list  = document.getElementById('links-list');
+    count.textContent = `${links.length} / 500 Links`;
+    if (links.length === 0) {
+      list.innerHTML = '<div class="empty">Noch keine Links. Kürze deinen ersten!</div>';
+      return;
+    }
+    list.innerHTML = links.map(l => `
+      <div class="link-item" id="link-${l.id}">
+        <div class="link-info">
+          <a class="link-short" href="/${esc(l.slug)}" target="_blank" rel="noopener">go.eselbande.com/${esc(l.slug)}</a>
+          <div class="link-dest" title="${esc(l.url)}">${esc(l.url)}</div>
+          <div class="link-meta">${formatDate(l.created_at)}</div>
+        </div>
+        <div class="link-actions">
+          <span class="click-badge">${l.clicks} Klicks</span>
+          <button class="btn-copy" onclick="copyLink('${esc(l.slug)}')">Kopieren</button>
+          <button class="btn btn-danger" onclick="deleteLink(${l.id})">Löschen</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function shorten() {
+    const url  = document.getElementById('url-input').value.trim();
+    const slug = document.getElementById('slug-input').value.trim();
+    const errEl = document.getElementById('shorten-error');
+    const sucEl = document.getElementById('shorten-success');
+    errEl.textContent = '';
+    sucEl.style.display = 'none';
+
+    if (!url) { errEl.textContent = 'Bitte eine URL eingeben.'; return; }
+
+    const res = await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, customSlug: slug || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Fehler'; return; }
+
+    sucEl.textContent = `✅ ${data.shortUrl}`;
+    sucEl.style.display = 'block';
+    document.getElementById('url-input').value = '';
+    document.getElementById('slug-input').value = '';
+    loadLinks();
+  }
+
+  async function deleteLink(id) {
+    if (!confirm('Link wirklich löschen?')) return;
+    const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+    if (res.ok) loadLinks();
+  }
+
+  function copyLink(slug) {
+    navigator.clipboard.writeText(`https://go.eselbande.com/${slug}`).then(() => showToast());
+  }
+
+  function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    return new Date(str + 'Z').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Enter key on inputs
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (document.activeElement.id === 'url-input' || document.activeElement.id === 'slug-input')) shorten();
+  });
+
+  init();
+</script>
+</body>
+</html>
