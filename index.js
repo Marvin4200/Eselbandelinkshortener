@@ -210,5 +210,8 @@ app.get('/:slug', (req, res, next) => {
     res.redirect(302, link.url);
 });
 
+// ── Health ───────────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime() }));
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`[go.eselbande.com] Running on port ${PORT}`));
