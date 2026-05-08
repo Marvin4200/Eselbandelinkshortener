@@ -2,6 +2,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const compression = require('compression');
 const session = require('express-session');
 const Database = require('better-sqlite3');
 const crypto = require('crypto');
@@ -57,8 +58,11 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy',
+        "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
     next();
 });
+app.use(compression());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -77,6 +81,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    // ── Rate limiting (in-memory, no external dependency) ─────────────────────────
+    const _rlStore = new Map();
+    setInterval(() => {
+        const now = Date.now();
+        for (const [k, v] of _rlStore) if (now > v.reset + 60_000) _rlStore.delete(k);
+    }, 5 * 60_000);
+    function rateLimit(max, windowMs) {
+        return (req, res, next) => {
+            const key = req.ip;
+            const now = Date.now();
+            const e = _rlStore.get(key) || { count: 0, reset: now + windowMs };
+            if (now > e.reset) { e.count = 0; e.reset = now + windowMs; }
+            if (++e.count > max) {
+                res.setHeader('Retry-After', Math.ceil((e.reset - now) / 1000));
+                return res.status(429).json({ error: 'Zu viele Anfragen. Bitte warte kurz.' });
+            }
+            _rlStore.set(key, e);
+            next();
+        };
+    }
+    const authLimiter     = rateLimit(20, 60_000);  // 20 auth attempts / min
+    const shortenLimiter  = rateLimit(20, 60_000);  // 20 new links / min
+    const redirectLimiter = rateLimit(120, 60_000); // 120 redirects / min (click farming)
+
     next();
 }
 
@@ -104,7 +132,7 @@ app.get('/auth/login', (req, res) => {
     res.redirect(`https://discord.com/oauth2/authorize?${params}`);
 });
 
-app.get('/auth/callback', async (req, res) => {
+app.get('/auth/callback', authLimiter, async (req, res) => {
     const { code } = req.query;
     if (!code || typeof code !== 'string') return res.redirect('/?error=missing_code');
 
@@ -161,7 +189,7 @@ app.get('/api/links', requireAuth, (req, res) => {
     res.json(links);
 });
 
-app.post('/api/shorten', requireAuth, (req, res) => {
+app.post('/api/shorten', shortenLimiter, requireAuth, (req, res) => {
     const { url, customSlug } = req.body || {};
 
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'URL erforderlich' });
@@ -211,7 +239,7 @@ const RESERVED_ROUTES = new Set(['auth', 'api', 'health']);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime() }));
 
-app.get('/:slug', (req, res, next) => {
+app.get('/:slug', redirectLimiter, (req, res, next) => {
     const { slug } = req.params;
     if (RESERVED_ROUTES.has(slug)) return next();
 
@@ -225,4 +253,11 @@ app.get('/:slug', (req, res, next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+// ── 404 & Error handlers ─────────────────────────────────────────────────────
+app.use((req, res) => res.status(404).json({ error: 'Nicht gefunden', path: req.path }));
+app.use((err, req, res, next) => {
+    console.error('[ERROR]', err.message);
+    res.status(500).json({ error: 'Interner Serverfehler' });
+});
+
 app.listen(PORT, () => console.log(`[go.eselbande.com] Running on port ${PORT}`));
