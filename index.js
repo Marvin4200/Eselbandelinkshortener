@@ -73,6 +73,7 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
     },
 }));
@@ -86,10 +87,11 @@ function requireAuth(req, res, next) {
 
 // ── Rate limiting (in-memory, no external dependency) ─────────────────────────
 const _rlStore = new Map();
-setInterval(() => {
+const _rlCleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const [k, v] of _rlStore) if (now > v.reset + 60_000) _rlStore.delete(k);
 }, 5 * 60_000);
+_rlCleanupInterval.unref();
 function createRateLimiter(max, windowMs) {
     return (req, res, next) => {
         const key = req.ip;
@@ -260,4 +262,15 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Interner Serverfehler' });
 });
 
-app.listen(PORT, () => console.log(`[go.eselbande.com] Running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`[go.eselbande.com] Running on port ${PORT}`));
+
+function shutdown(signal) {
+    console.log(`[SHUTDOWN] ${signal} received`);
+    server.close(() => {
+        try { db.close(); } catch (_) { }
+        process.exit(0);
+    });
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
