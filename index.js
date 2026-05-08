@@ -49,6 +49,55 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_links_slug ON links(slug);
 `);
 
+// ── Redis-ready session store ─────────────────────────────────────────────────
+// Optional env vars:
+//   REDIS_URL=redis://127.0.0.1:6379  — enables Redis-backed sessions
+//   REDIS_REQUIRED=true               — crash instead of falling back to memory
+// Without REDIS_URL the default in-memory MemoryStore is used.
+// MemoryStore is per-process and lost on restart — not safe for PM2 cluster mode.
+let _sessionStoreType = 'memory';
+
+function buildSessionStore() {
+    const REDIS_URL = process.env.REDIS_URL;
+    if (!REDIS_URL) {
+        console.log('[session] No REDIS_URL — using in-memory MemoryStore (not cluster-safe)');
+        return undefined; // express-session defaults to MemoryStore
+    }
+    let Redis, RedisStoreFactory;
+    try {
+        Redis = require('ioredis');
+        RedisStoreFactory = require('connect-redis')(session);
+    } catch {
+        const warn = '[session] REDIS_URL set but ioredis/connect-redis not installed — run: npm install  Falling back to memory store.';
+        console.warn(warn);
+        if (process.env.REDIS_REQUIRED === 'true') throw new Error(warn);
+        return undefined;
+    }
+    try {
+        const client = new Redis(REDIS_URL, {
+            lazyConnect: false,
+            maxRetriesPerRequest: 3,
+            connectTimeout: 5000,
+            enableReadyCheck: true,
+        });
+        client.on('connect', () => {
+            _sessionStoreType = 'redis';
+            console.log('[session] Redis connected — sessions backed by Redis');
+        });
+        client.on('error', err => {
+            _sessionStoreType = 'redis-degraded';
+            console.warn('[session] Redis error:', err.message);
+        });
+        _sessionStoreType = 'redis-connecting';
+        return new RedisStoreFactory({ client, prefix: 'sess:linkshortener:', ttl: 7 * 24 * 60 * 60 });
+    } catch (err) {
+        const warn = `[session] Redis store init failed: ${err.message} — falling back to memory`;
+        console.warn(warn);
+        if (process.env.REDIS_REQUIRED === 'true') throw err;
+        return undefined;
+    }
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1);
@@ -67,6 +116,7 @@ app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
+    store: buildSessionStore(),
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -85,7 +135,9 @@ function requireAuth(req, res, next) {
     next();
 }
 
-// ── Rate limiting (in-memory, no external dependency) ─────────────────────────
+// ── Rate limiting (in-memory, per-process) ────────────────────────────────────
+// NOTE: Resets on restart and is not shared across PM2 cluster workers.
+// TODO: Replace with rate-limiter-flexible + ioredis for cluster-safe limiting.
 const _rlStore = new Map();
 const _rlCleanupInterval = setInterval(() => {
     const now = Date.now();
@@ -239,7 +291,7 @@ app.delete('/api/links/:id', requireAuth, (req, res) => {
 // ── Redirect ──────────────────────────────────────────────────────────────────
 const RESERVED_ROUTES = new Set(['auth', 'api', 'health']);
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime() }));
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'linkshortener', uptime: process.uptime(), session_store: _sessionStoreType }));
 
 app.get('/:slug', redirectLimiter, (req, res, next) => {
     const { slug } = req.params;
