@@ -183,14 +183,29 @@
     }
     .btn-copy:hover { background: var(--surface); }
 
-    @media (max-width: 540px) {
-      .topnav { padding: 0.6rem 0.75rem; }
+    @media (max-width: 480px) {
+      .topnav {
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0.6rem 0.75rem;
+      }
       .nav-brand { font-size: 0.85rem; white-space: nowrap; }
-      .nav-links { overflow-x: auto; scrollbar-width: none; flex-shrink: 1; min-width: 0; }
+      .nav-links {
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
       .nav-links::-webkit-scrollbar { display: none; }
+      .nav-links > * { flex: 0 0 auto; }
       .nav-link { white-space: nowrap; padding: 0.28rem 0.55rem; font-size: 0.72rem; }
       .form-row { flex-direction: column; }
       .link-dest { max-width: 220px; }
+      html, body { max-width: 100%; overflow-x: hidden; }
     }
   </style>
 </head>
