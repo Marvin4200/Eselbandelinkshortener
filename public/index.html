@@ -41,6 +41,16 @@
     /* ── Layout ── */
     .wrap { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; padding: 0 20px 60px; }
 
+    /* ── Back link ── */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: .8rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; transition: color .15s;
+      position: absolute; top: 14px; left: 20px;
+    }
+    .back-link:hover { color: var(--text); }
+    .back-link svg { flex-shrink: 0; }
+
     /* ── Header ── */
     header {
       display: flex; align-items: center; justify-content: space-between;
@@ -169,6 +179,10 @@
 </head>
 <body>
 <div class="wrap">
+  <a href="https://eselbande.com" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    eselbande.com
+  </a>
   <header>
     <div class="logo">go<span>.eselbande.com</span></div>
     <div id="header-auth"></div>
